@@ -53,7 +53,7 @@ namespace GameSchedulerMicroservice
                 .AddLogging()
                 .AddSingleton<IMongoDbSetup, MongoDbSetup>(x => new MongoDbSetup(connectionString, databaseName, collectionName))
                 .AddSingleton<IGameScheduleWebApiConsumer, GameScheduleWebApiConsumer>(x => new GameScheduleWebApiConsumer(new RestClient(apiBaseUrl) { Authenticator = new HttpBasicAuthenticator(apiUsername, apiPassword) }, gamScheduleUrl, format, seasonName))
-                .AddSingleton<IMessageSetup, MessageBusSetup>(x => new MessageBusSetup(msgBusHost, msgBusUsername, msgBusPassword, msgBusReconnect, msgBusExchange, msgBusConnectionName, msgBusQueue, "direct"))
+                .AddSingleton<IMessageBusSetup, MessageBusSetup>(x => new MessageBusSetup(msgBusHost, msgBusUsername, msgBusPassword, msgBusReconnect, msgBusExchange, msgBusConnectionName, msgBusQueue, "direct"))
                 .BuildServiceProvider();
 
             serviceProvider.GetService<ILoggerFactory>().AddConsole(LogLevel.Debug);
@@ -68,7 +68,7 @@ namespace GameSchedulerMicroservice
             gameScheduleWebApi.Get(); // Get schedule and store in database
             logger.LogDebug("Starting Game Scheduler application...");
             
-            var publisher = serviceProvider.GetService<IMessageSetup>();
+            var publisher = serviceProvider.GetService<IMessageBusSetup>();
             var channel = publisher.Setup();
 
             //scheduler.Start();

@@ -2,7 +2,7 @@
 
 namespace GameSchedulerMicroservice
 {
-    public interface IMessageSetup
+    public interface IMessageBusSetup
     {
         IModel Setup();
     }

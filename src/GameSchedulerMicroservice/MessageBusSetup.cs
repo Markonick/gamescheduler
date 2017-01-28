@@ -6,7 +6,7 @@ using RabbitMQ.Client.Exceptions;
 
 namespace GameSchedulerMicroservice
 {
-    public class MessageBusSetup : IMessageSetup
+    public class MessageBusSetup : IMessageBusSetup
     {
         private readonly string _exchange;
         private readonly string _exchangeType;
