@@ -1,5 +1,4 @@
 ﻿using System;
-using BoxScoreService;
 using RestSharp;
 
 namespace GameSchedulerMicroservice
