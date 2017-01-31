@@ -1,6 +1,11 @@
 ﻿using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Dynamic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using GameScheduler.Repositories;
 using Microsoft.Extensions.Configuration;
@@ -40,7 +45,8 @@ namespace GameSchedulerMicroservice
             var seasonName = mySettings.GetValue<string>("SEASON_NAME");
             var connectionString = mySettings.GetValue<string>("CONNECTION_STRING");
             var databaseName =  mySettings.GetValue<string>("DATABASE_NAME");
-            var collectionName = mySettings.GetValue<string>("COLLECTION_NAME");
+            var fullScheduleCollectionName = mySettings.GetValue<string>("FULL_SCHEDULE_COLLECTION_NAME");
+            var dailyScheduleCollectionName = mySettings.GetValue<string>("DAILY_SCHEDULE_COLLECTION_NAME");
             var format = mySettings.GetValue<string>("FORMAT");
             var gamScheduleUrl = mySettings.GetValue<string>("GAMESCHEDULE_URL");
             var interval = mySettings.GetValue<int>("API_REQUEST_INTERVAL_MS");
@@ -66,7 +72,7 @@ namespace GameSchedulerMicroservice
             //Setup MongoDB
             var repo = serviceProvider.GetService<IGameScheduleRepository>();
             var db = repo.Setup();
-            var collection = db.GetCollection<BsonDocument>(collectionName);
+            var collection = db.GetCollection<BsonDocument>(fullScheduleCollectionName);
 
             //Setup Web Api Consumer and Logging
             var gameScheduleWebApi = serviceProvider.GetService<IGameScheduleWebApiConsumer>();
@@ -79,18 +85,43 @@ namespace GameSchedulerMicroservice
             //... store JSON to MongoDb database
             logger.LogDebug("Storing JSON to MongoDb database...");
             var jsonData = JsonConvert.SerializeObject(gameScheduleResponse);
-            var document = BsonSerializer.Deserialize<dynamic>(jsonData);
-            collection.InsertOne(document[0]);
+            var array = BsonSerializer.Deserialize<BsonArray>(jsonData);
 
+            foreach (var document in array)
+            {
+                collection.InsertOne(document, null, cancellationTokenSource.Token);
+            }
+
+            //Create a daily list of daily games
+            var today = DateTime.Today.ToString("yyyy-MM-dd");
+            collection = db.GetCollection<BsonDocument>(fullScheduleCollectionName);
+            var filter = Builders<BsonDocument>.Filter.Eq("date", today);
+            var queryResult = collection.Find(filter).ToList();
+
+            //Create daily schedule collection and add to db
+            var dailyGameCollection = db.GetCollection<BsonDocument>(dailyScheduleCollectionName);
+            var timeNow = DateTime.Now.ToString("hh:mmtt");
+            var re = db.GetCollection<Message>(dailyScheduleCollectionName).AsQueryable().Select(x => x._Id);
+            foreach (var document in queryResult)
+            {
+                dailyGameCollection.InsertOne(document, null, cancellationTokenSource.Token);
+            }
+
+            //Create message
+            /*var message = new Message
+            {
+                Away = 
+            }*/
+            
             //Setup  RabbitMQ and publish message to the queue
             logger.LogDebug("Setting up RabbitMQ...");
             var publisher = serviceProvider.GetService<IMessageBusSetup>();
 
             //Find today's games and create list of games
-            publisher.Publish("yo, it's working again");
-            var result = 
-            Console.ReadLine();
+            publisher.Publish("yo, it's working again and again");
+            //var result = 
             logger.LogDebug("All done!");
+            Console.ReadLine();
         }
     }
 }
