@@ -1,9 +1,7 @@
-﻿using RabbitMQ.Client;
-
-namespace GameSchedulerMicroservice
+﻿namespace GameSchedulerMicroservice
 {
     public interface IMessageBusSetup
     {
-        IModel Setup();
+        void Publish<T>(T message);
     }
 }

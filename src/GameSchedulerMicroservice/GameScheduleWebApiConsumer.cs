@@ -18,7 +18,7 @@ namespace GameSchedulerMicroservice
             _seasonName = seasonName;
         }
 
-        public IRestResponse Get()
+        public dynamic Get()
         {
             var request = new RestRequest(_url, Method.GET) { RequestFormat = DataFormat.Json };
 
@@ -32,7 +32,8 @@ namespace GameSchedulerMicroservice
                 throw new Exception(response.ErrorMessage);
             }
 
-            return response;
+            var result = response.Data["fullgameschedule"]["gameentry"];
+            return result;
         }
     }
 }

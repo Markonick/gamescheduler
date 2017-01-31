@@ -2,7 +2,6 @@
 using System.Text;
 using Newtonsoft.Json;
 using RabbitMQ.Client;
-using RabbitMQ.Client.Exceptions;
 
 namespace GameSchedulerMicroservice
 {
@@ -27,22 +26,27 @@ namespace GameSchedulerMicroservice
             _connectionName = connectionName;
             _queueName = queueName;
             _exchangeType = exchangeType;
+
+            Setup();
         }
 
-        public IModel Setup()
+        public void Publish<T>(T message)
         {
-            ConnectionFactory connectionFactory = null;
-
-            connectionFactory = new ConnectionFactory
+            var connectionFactory = ConnectionBuilder();
+            using (var connection = connectionFactory.CreateConnection())
+            using (var channel = connection.CreateModel())
             {
-                HostName = _host,
-                UserName = _username,
-                Password = _password,
-                AutomaticRecoveryEnabled = true,
-                NetworkRecoveryInterval = TimeSpan.FromSeconds(_reconnect)
-            };
-            
-            var connection = connectionFactory.CreateConnection();
+                var properties = channel.CreateBasicProperties();
+                properties.Persistent = true;
+                channel.BasicPublish(_exchange, string.Empty, properties, Encoding.UTF8.GetBytes(JsonConvert.SerializeObject("Yo, its working...")));
+            }
+        }
+           
+        private void Setup()
+        {
+            var connectionFactory = ConnectionBuilder();
+
+            using (var connection = connectionFactory.CreateConnection())
             using (var channel = connection.CreateModel())
             {
                 var properties = channel.CreateBasicProperties();
@@ -51,9 +55,20 @@ namespace GameSchedulerMicroservice
                 channel.ExchangeDeclare(_exchange, _exchangeType,  true);
                 channel.QueueDeclare(_queueName,  true,  false,  false);
                 channel.QueueBind(_queueName, _exchange,  string.Empty);
-                channel.BasicPublish(_exchange, string.Empty, properties, Encoding.UTF8.GetBytes(JsonConvert.SerializeObject("Yo, its working...")));
-                return channel;
             }
+        }
+
+        private ConnectionFactory ConnectionBuilder()
+        {
+            var connectionFactory = new ConnectionFactory
+            {
+                HostName = _host,
+                UserName = _username,
+                Password = _password,
+                AutomaticRecoveryEnabled = true,
+                NetworkRecoveryInterval = TimeSpan.FromSeconds(_reconnect)
+            };
+            return connectionFactory;
         }
     }
 }

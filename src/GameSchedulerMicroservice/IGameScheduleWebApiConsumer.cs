@@ -4,6 +4,6 @@ namespace GameSchedulerMicroservice
 {
     public interface IGameScheduleWebApiConsumer
     {
-        IRestResponse Get();
+        dynamic Get();
     }
 }
