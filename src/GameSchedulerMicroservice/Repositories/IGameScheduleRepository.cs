@@ -4,6 +4,8 @@ namespace GameScheduler.Repositories
 {
     public interface IGameScheduleRepository
     {
-        IMongoDatabase  Setup();
+        IMongoDatabase Db { get; set; }
+        void StoreFullSchedule();
+        void StoreDailySchedule();
     }
 }

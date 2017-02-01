@@ -1,22 +1,56 @@
-﻿using MongoDB.Driver;
+﻿using System.Threading;
+using GameSchedulerMicroservice;
+using Microsoft.Extensions.Logging;
+using MongoDB.Bson;
+using MongoDB.Bson.Serialization;
+using MongoDB.Driver;
+using Newtonsoft.Json;
 
 namespace GameScheduler.Repositories
 {
     public class GameScheduleRepository : IGameScheduleRepository
     {
-        private readonly string _connectionString;
-        private readonly string _databaseName;
+        private readonly object _response;
+        private readonly ILoggerFactory _logger;
+        private readonly string _fullCollectionName;
 
-        public GameScheduleRepository(string connectionString, string databaseName)
+        public IMongoDatabase Db { get; set; }
+
+        public GameScheduleRepository(IMongoClient client, string databaseName, dynamic response, ILoggerFactory logger, string fullCollectionName)
         {
-            _connectionString = connectionString;
-            _databaseName = databaseName;
+            _response = response;
+            _logger = logger;
+            _fullCollectionName = fullCollectionName;
+
+            Db = client.GetDatabase(databaseName);
         }
 
-        public IMongoDatabase  Setup()
+        public void StoreFullSchedule()
         {
-            var client = new MongoClient(_connectionString);
-            return client.GetDatabase(_databaseName);
+            _logger.CreateLogger<Program>().LogDebug("Storing Full Schedule to MongoDb database...");
+
+            var collection = Db.GetCollection<BsonDocument>(_fullCollectionName);
+            var jsonData = JsonConvert.SerializeObject(_response);
+
+            var array = BsonSerializer.Deserialize<BsonArray>(jsonData);
+            foreach (var document in array)
+            {
+                collection.InsertOne(document, null, CancellationToken.None);
+            }
+        }
+        
+        public void StoreDailySchedule()
+        {
+            _logger.CreateLogger<Program>().LogDebug("Storing Daily Schedule to MongoDb database...");
+
+            var collection = Db.GetCollection<BsonDocument>(_fullCollectionName);
+            var jsonData = JsonConvert.SerializeObject(_response);
+
+            var array = BsonSerializer.Deserialize<BsonArray>(jsonData);
+            foreach (var document in array)
+            {
+                collection.InsertOne(document);
+            }
         }
     }
 }
