@@ -62,7 +62,7 @@ namespace GameSchedulerMicroservice
             //setup our DI
             var serviceProvider = new ServiceCollection()
                 .AddLogging()
-                .AddSingleton< IGameScheduleRepository, GameScheduleRepository>(x => new GameScheduleRepository(new MongoClient(connectionString), databaseName, null, new LoggerFactory(), fullScheduleCollectionName))
+                .AddSingleton< IGameScheduleRepository, GameScheduleRepository>(x => new GameScheduleRepository(new MongoClient(connectionString), databaseName,  new LoggerFactory()))
                 .AddSingleton<IGameScheduleWebApiConsumer, GameScheduleWebApiConsumer>(x => new GameScheduleWebApiConsumer(new RestClient(apiBaseUrl) { Authenticator = new HttpBasicAuthenticator(apiUsername, apiPassword) }, gamScheduleUrl, format, seasonName))
                 .AddSingleton<IMessageBusSetup, MessageBusSetup>(x => new MessageBusSetup(msgBusHost, msgBusUsername, msgBusPassword, msgBusReconnect, msgBusExchange, msgBusConnectionName, msgBusQueue, "direct"))
                 .BuildServiceProvider();
@@ -80,24 +80,17 @@ namespace GameSchedulerMicroservice
             logger.LogDebug("Calling Game Schedule Web API...");
             var gameScheduleResponse = gameScheduleWebApi.Get();
 
-            repo.
 
-              //Create a daily list of daily games
-              var today = DateTime.Today.ToString("yyyy-MM-dd");
+            //Store full schedule
+            repo.StoreFullSchedule(gameScheduleResponse, fullScheduleCollectionName);
+            //Create a daily list of daily games
+            var today = DateTime.Today.ToString("yyyy-MM-dd");
+            repo.StoreDailySchedule(fullScheduleCollectionName, dailyScheduleCollectionName);
 
-            collection = db.GetCollection<BsonDocument>(fullScheduleCollectionName);
-            var filter = Builders<BsonDocument>.Filter.Eq("date", today);
-            var queryResult = collection.Find(filter).ToList();
+            //var queryResult = collection.Find(filter).ToList();
 
             //Create daily schedule collection and store in db
-            var dailyGameCollection = db.GetCollection<BsonDocument>(dailyScheduleCollectionName);
-            foreach (var document in queryResult)
-            {
-                dailyGameCollection.InsertOne(document, null, cancellationTokenSource.Token);
-            }
 
-            var timeNow = DateTime.Now.ToString("hh:mmtt");
-            var re = db.GetCollection<Message>(dailyScheduleCollectionName).AsQueryable().Select(x => x._Id);
 
             //Create message
             /*var message = new Message

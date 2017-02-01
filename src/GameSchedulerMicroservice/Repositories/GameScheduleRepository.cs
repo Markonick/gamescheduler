@@ -1,4 +1,5 @@
-﻿using System.Threading;
+﻿using System;
+using System.Threading;
 using GameSchedulerMicroservice;
 using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
@@ -10,46 +11,45 @@ namespace GameScheduler.Repositories
 {
     public class GameScheduleRepository : IGameScheduleRepository
     {
-        private readonly object _response;
         private readonly ILoggerFactory _logger;
-        private readonly string _fullCollectionName;
+        private readonly IMongoClient _client;
+        private readonly string _databaseName;
 
-        public IMongoDatabase Db { get; set; }
-
-        public GameScheduleRepository(IMongoClient client, string databaseName, dynamic response, ILoggerFactory logger, string fullCollectionName)
+        public GameScheduleRepository(IMongoClient client, string databaseName, ILoggerFactory logger)
         {
-            _response = response;
+            _client = client;
+            _databaseName = databaseName;
             _logger = logger;
-            _fullCollectionName = fullCollectionName;
-
-            Db = client.GetDatabase(databaseName);
         }
 
-        public void StoreFullSchedule()
+        public void StoreFullSchedule(dynamic response, string collectionName)
         {
             _logger.CreateLogger<Program>().LogDebug("Storing Full Schedule to MongoDb database...");
-
-            var collection = Db.GetCollection<BsonDocument>(_fullCollectionName);
-            var jsonData = JsonConvert.SerializeObject(_response);
-
+            var db = _client.GetDatabase(_databaseName);
+            var collection = db.GetCollection<BsonDocument>(collectionName);
+            var jsonData = JsonConvert.SerializeObject(response);
             var array = BsonSerializer.Deserialize<BsonArray>(jsonData);
+
             foreach (var document in array)
             {
-                collection.InsertOne(document, null, CancellationToken.None);
+                collection.InsertOne(document, null);
             }
         }
         
-        public void StoreDailySchedule()
+        public void StoreDailySchedule(string sourceName, string targetName)
         {
             _logger.CreateLogger<Program>().LogDebug("Storing Daily Schedule to MongoDb database...");
+            var db = _client.GetDatabase(_databaseName);
+            var today = DateTime.Today.ToString("yyyy-MM-dd");
+            var sourceCollection = db.GetCollection<BsonDocument>(sourceName);
+            var filter = Builders<BsonDocument>.Filter.Eq("date", today);
+            var queryResult = sourceCollection.Find(filter).ToList();
 
-            var collection = Db.GetCollection<BsonDocument>(_fullCollectionName);
-            var jsonData = JsonConvert.SerializeObject(_response);
-
-            var array = BsonSerializer.Deserialize<BsonArray>(jsonData);
-            foreach (var document in array)
+            var targetCollection = db.GetCollection<BsonDocument>(targetName);
+            //Create daily schedule collection and add to db
+            foreach (var document in queryResult)
             {
-                collection.InsertOne(document);
+                targetCollection.InsertOne(document, null);
             }
         }
     }
