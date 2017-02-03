@@ -1,21 +1,11 @@
 ﻿using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Dynamic;
-using System.Globalization;
 using System.IO;
-using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Threading;
 using GameScheduler.Repositories;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using MongoDB.Bson;
-using MongoDB.Bson.Serialization;
 using MongoDB.Driver;
-using MongoDB.Driver.Linq;
-using Newtonsoft.Json;
 using RestSharp;
 using RestSharp.Authenticators;
 
@@ -27,8 +17,6 @@ namespace GameSchedulerMicroservice
 
         public static void Main(string[] args)
         {
-            var cancellationTokenSource = new CancellationTokenSource();
-
             var builder = new ConfigurationBuilder()
                .SetBasePath(Directory.GetCurrentDirectory())
                .AddJsonFile("appsettings.json");
@@ -62,7 +50,7 @@ namespace GameSchedulerMicroservice
             //setup our DI
             var serviceProvider = new ServiceCollection()
                 .AddLogging()
-                .AddSingleton< IGameScheduleRepository, GameScheduleRepository>(x => new GameScheduleRepository(new MongoClient(connectionString), databaseName,  new LoggerFactory()))
+                .AddSingleton<IGameScheduleRepository, GameScheduleRepository>(x => new GameScheduleRepository(new MongoClient(connectionString), databaseName,  new LoggerFactory(), fullScheduleCollectionName, dailyScheduleCollectionName))
                 .AddSingleton<IGameScheduleWebApiConsumer, GameScheduleWebApiConsumer>(x => new GameScheduleWebApiConsumer(new RestClient(apiBaseUrl) { Authenticator = new HttpBasicAuthenticator(apiUsername, apiPassword) }, gamScheduleUrl, format, seasonName))
                 .AddSingleton<IMessageBusSetup, MessageBusSetup>(x => new MessageBusSetup(msgBusHost, msgBusUsername, msgBusPassword, msgBusReconnect, msgBusExchange, msgBusConnectionName, msgBusQueue, "direct"))
                 .BuildServiceProvider();
@@ -79,24 +67,16 @@ namespace GameSchedulerMicroservice
             // Get Response from Web API 
             logger.LogDebug("Calling Game Schedule Web API...");
             var gameScheduleResponse = gameScheduleWebApi.Get();
+            
+            //Store full schedule at service startup
+            repo.StoreFullSchedule(gameScheduleResponse);
 
+            //Store daily schedule at 00:00 ET every day
+            repo.StoreDailySchedule();
 
-            //Store full schedule
-            repo.StoreFullSchedule(gameScheduleResponse, fullScheduleCollectionName);
-            //Create a daily list of daily games
-            var today = DateTime.Today.ToString("yyyy-MM-dd");
-            repo.StoreDailySchedule(fullScheduleCollectionName, dailyScheduleCollectionName);
-
-            //var queryResult = collection.Find(filter).ToList();
-
-            //Create daily schedule collection and store in db
-
-
-            //Create message
-            /*var message = new Message
-            {
-                Away = 
-            }*/
+            //Create message for next game
+            var timeInOneHour = DateTime.UtcNow.AddHours(1).ToString("HH:mmtt");
+            repo.GetNextGame("7:00PM");
 
             //Setup  RabbitMQ and publish message to the queue
             logger.LogDebug("Setting up RabbitMQ...");

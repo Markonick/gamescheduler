@@ -18,7 +18,8 @@
     },
     "RestSharp.NetCore": "105.2.4-rc4-24214-01",
     "MongoDB.Driver": "2.4.1",
-    "RabbitMQ.Client": "4.1.1"
+    "RabbitMQ.Client": "4.1.1",
+    "System.Linq": "4.3.0"
   },
 
   "frameworks": {
