@@ -71,7 +71,7 @@ namespace GameScheduler.Repositories
                 var message = new Message()
                 {
                     Time = inOneHour,
-                    GameId = queryResult
+                    GameId = queryResult.First().awayTeam.Abbreviation + "-" + queryResult.First().homeTeam.Abbreviation
                 }
             }*/
             return null;
