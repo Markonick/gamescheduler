@@ -1,4 +1,6 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Collections.Specialized;
+using System.Threading.Tasks;
 using Quartz;
 using Quartz.Impl;
 
@@ -6,20 +8,46 @@ namespace GameScheduler
 {
     public class JobScheduler
     {
-        public static async Task Start()
+        public async Task Start()
         {
-            var scheduler = await StdSchedulerFactory.GetDefaultScheduler();
+            //var scheduler = await StdSchedulerFactory.GetDefaultScheduler();
+            // await scheduler.Start();
+            // Grab the Scheduler instance from the Factory
+            NameValueCollection props = new NameValueCollection
+            {
+                { "quartz.serializer.type", "binary" }
+            };
+            StdSchedulerFactory factory = new StdSchedulerFactory();
+            IScheduler scheduler = await factory.GetScheduler();
+
+            // and start it off
             await scheduler.Start();
+            var storeDailyGamesJob = JobBuilder.Create<StoreDailyGamesJob>().Build();
+            //var publishGamesJob = JobBuilder.Create<PublishGamesJob>().Build();
 
-            var job = JobBuilder.Create<PublishGamesJob>().Build();
-
-            var trigger = TriggerBuilder.Create()
+            /*var storeDailyGamesTrigger = TriggerBuilder.Create()
                     .WithDailyTimeIntervalSchedule(s => s.WithIntervalInHours(24)
                     .OnEveryDay()
-                    .StartingDailyAt(TimeOfDay.HourAndMinuteOfDay(0, 0)))
+                    .StartingDailyAt(TimeOfDay.HourAndMinuteOfDay(22, 26)))
                     .Build();
 
-            await scheduler.ScheduleJob(job, trigger);
+            var publishGamesJobTrigger = TriggerBuilder.Create()
+                    .WithDailyTimeIntervalSchedule(s => s.WithIntervalInHours(24)
+                    .OnEveryDay()
+                    .StartingDailyAt(TimeOfDay.HourAndMinuteOfDay(14, 14)))
+                    .Build();*/
+            var trigger = TriggerBuilder.Create()
+                .WithIdentity("trigger7", "group1")
+                .WithSimpleSchedule(x => x
+                .WithIntervalInSeconds(5)
+                .RepeatForever())
+                .EndAt(DateBuilder.DateOf(22, 50, 0))
+                .Build();
+
+            await scheduler.ScheduleJob(storeDailyGamesJob, trigger);
+            //await scheduler.ScheduleJob(publishGamesJob, publishGamesJobTrigger); // some sleep to show what's happening
+
+            await Task.Delay(TimeSpan.FromSeconds(30));
         }
 
         public async Task Stop()

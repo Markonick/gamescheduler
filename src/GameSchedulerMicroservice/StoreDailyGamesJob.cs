@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Threading.Tasks;
 using GameScheduler.Repositories;
 using Quartz;
 
@@ -14,9 +15,11 @@ namespace GameScheduler
         }
 
         public async Task Execute(IJobExecutionContext context)
-        {
-            _gameRepo.StoreDailySchedule();
-            await Task.Delay(1);
+        {     
+                _gameRepo.StoreDailySchedule();
+                Console.WriteLine("Hi from StoreDailyGameJOb");
+                await Task.Delay(1);
+    
         }
     }
 }

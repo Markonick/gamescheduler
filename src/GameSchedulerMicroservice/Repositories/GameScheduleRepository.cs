@@ -1,8 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
-using System.Reflection.Metadata.Ecma335;
 using GameSchedulerMicroservice;
 using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
@@ -19,11 +16,13 @@ namespace GameScheduler.Repositories
         private readonly string _databaseName;
         private readonly string _fullScheduleCollectionName;
         private readonly string _dailyScheduleCollectionName;
+        private readonly ITimeProvider _timeProvider;
 
-        public GameScheduleRepository(IMongoClient client, string databaseName, ILoggerFactory logger, string fullScheduleCollectionName, string dailyScheduleCollectionName)
+        public GameScheduleRepository(IMongoClient client, string databaseName, ILoggerFactory logger, ITimeProvider timeProvider, string fullScheduleCollectionName, string dailyScheduleCollectionName)
         {
             _client = client;
             _databaseName = databaseName;
+            _timeProvider = timeProvider;
             _logger = logger;
             _fullScheduleCollectionName = fullScheduleCollectionName;
             _dailyScheduleCollectionName = dailyScheduleCollectionName;
@@ -53,17 +52,18 @@ namespace GameScheduler.Repositories
             var queryResult = sourceCollection.Find(filter).ToList();
 
             var targetCollection = db.GetCollection<BsonDocument>(_dailyScheduleCollectionName);
-            
+
             foreach (var document in queryResult)
             {
                 targetCollection.InsertOne(document, null);
             }
         }
-
-        public Message GetNextGamesJob(string now)
+        
+        public Message GetNextGames()
         {
             var db = _client.GetDatabase(_databaseName);
             var collection = db.GetCollection<Game>(_dailyScheduleCollectionName);
+            var now = _timeProvider.Time;
             var filter = Builders<Game>.Filter.Eq("time", now);
             var queryResult = collection.Find(filter).ToList();
 
