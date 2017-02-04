@@ -8,6 +8,6 @@ namespace GameScheduler.Repositories
     {
         void StoreFullSchedule(dynamic response);
         void StoreDailySchedule();
-        Message GetNextGame(string inOneHour);
+        Message GetNextGames(string inOneHour);
     }
 }

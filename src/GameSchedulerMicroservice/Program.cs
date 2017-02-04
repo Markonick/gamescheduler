@@ -1,11 +1,13 @@
 ﻿using System;
 using System.IO;
 using System.Threading;
+using GameScheduler;
 using GameScheduler.Repositories;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
+using Quartz;
 using RestSharp;
 using RestSharp.Authenticators;
 
@@ -72,18 +74,20 @@ namespace GameSchedulerMicroservice
             repo.StoreFullSchedule(gameScheduleResponse);
 
             //Store daily schedule at 00:00 ET every day
-            repo.StoreDailySchedule();
+            
 
-            //Create message for next game
-            var timeInOneHour = DateTime.UtcNow.AddHours(1).ToString("HH:mmtt");
-            repo.GetNextGame("7:00PM");
+            //This is where we loop, checking for upcoming games continuously. We create messages upcoming games
+            //to be consumed by subscribers
+
+            var time = DateTime.UtcNow.AddHours(0).ToString("HH:mmtt");
+            var msg = repo.GetNextGames(time);
 
             //Setup  RabbitMQ and publish message to the queue
             logger.LogDebug("Setting up RabbitMQ...");
             var publisher = serviceProvider.GetService<IMessageBusSetup>();
 
             //Find today's games and create list of games
-            publisher.Publish("yo, it's working again and again");
+            publisher.Publish(msg);
             //var result = 
             logger.LogDebug("All done!");
             Console.ReadLine();

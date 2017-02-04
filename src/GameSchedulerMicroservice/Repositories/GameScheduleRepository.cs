@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Reflection.Metadata.Ecma335;
 using GameSchedulerMicroservice;
 using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
@@ -52,29 +53,34 @@ namespace GameScheduler.Repositories
             var queryResult = sourceCollection.Find(filter).ToList();
 
             var targetCollection = db.GetCollection<BsonDocument>(_dailyScheduleCollectionName);
-
+            
             foreach (var document in queryResult)
             {
                 targetCollection.InsertOne(document, null);
             }
         }
 
-        public Message GetNextGame(string inOneHour)
+        public Message GetNextGamesJob(string now)
         {
             var db = _client.GetDatabase(_databaseName);
             var collection = db.GetCollection<Game>(_dailyScheduleCollectionName);
-            var filter = Builders<Game>.Filter.Eq("time", inOneHour);
-            var queryResult = collection.Find(filter).ToList().Where(x => x.time.Equals(inOneHour));
+            var filter = Builders<Game>.Filter.Eq("time", now);
+            var queryResult = collection.Find(filter).ToList();
 
-            /*if (queryResult != null)
+            if (queryResult == null)
             {
-                var message = new Message()
-                {
-                    Time = inOneHour,
-                    GameId = queryResult.First().awayTeam.Abbreviation + "-" + queryResult.First().homeTeam.Abbreviation
-                }
-            }*/
-            return null;
+                return null;
+            }
+
+            var message = new Message()
+            {
+                Time = now,
+                GameId = queryResult
+                        .Where(x => x.time == now)
+                        .Select((x, y) => x.awayTeam.Abbreviation + "-" + x.homeTeam.Abbreviation)
+            };
+
+            return message;
         }
     }
 }

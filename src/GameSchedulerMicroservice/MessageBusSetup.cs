@@ -38,7 +38,7 @@ namespace GameSchedulerMicroservice
             {
                 var properties = channel.CreateBasicProperties();
                 properties.Persistent = true;
-                channel.BasicPublish(_exchange, string.Empty, properties, Encoding.UTF8.GetBytes(JsonConvert.SerializeObject("Yo, its working...")));
+                channel.BasicPublish(_exchange, string.Empty, properties, Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(message)));
             }
         }
            

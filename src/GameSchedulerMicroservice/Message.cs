@@ -1,8 +1,10 @@
-﻿namespace GameScheduler.Repositories
+﻿using System.Collections.Generic;
+
+namespace GameScheduler.Repositories
 {
     public class Message
     {
-        private string Time { get; set; }
-        public string GameId { get; set; }
+        public string Time { get; set; }
+        public IEnumerable<string> GameId { get; set; }
     }
 }
