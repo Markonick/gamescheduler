@@ -10,13 +10,6 @@ namespace GameScheduler
     {
         public async Task Start()
         {
-            //var scheduler = await StdSchedulerFactory.GetDefaultScheduler();
-            // await scheduler.Start();
-            // Grab the Scheduler instance from the Factory
-            NameValueCollection props = new NameValueCollection
-            {
-                { "quartz.serializer.type", "binary" }
-            };
             StdSchedulerFactory factory = new StdSchedulerFactory();
             IScheduler scheduler = await factory.GetScheduler();
 

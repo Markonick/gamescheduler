@@ -1,11 +1,13 @@
 ﻿using System;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using GameScheduler;
 using GameScheduler.Repositories;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.DependencyInjection.Specification.Fakes;
 using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
 using Quartz;
@@ -21,26 +23,13 @@ namespace GameSchedulerMicroservice
 
         public static void Main(string[] args)
         {
-            var builder = new ConfigurationBuilder()
-               .SetBasePath(Directory.GetCurrentDirectory())
-               .AddJsonFile("appsettings.json");
-
-            var configuration = builder.Build();
-
-            
-
             //setup our DI
             var serviceCollection = new ServiceCollection();
 
             ConfigureServices(serviceCollection);
 
-                .AddLogging()
-                .AddSingleton<IGameScheduleRepository, GameScheduleRepository>(x => new GameScheduleRepository(new MongoClient(connectionString), databaseName,  new LoggerFactory(), new TimeProvider(DateTime.UtcNow.AddHours(0).ToString("HH:mmtt")), fullScheduleCollectionName, dailyScheduleCollectionName))
-                .AddSingleton<IGameScheduleWebApiConsumer, GameScheduleWebApiConsumer>(x => new GameScheduleWebApiConsumer(new RestClient(apiBaseUrl) { Authenticator = new HttpBasicAuthenticator(apiUsername, apiPassword) }, gamScheduleUrl, format, seasonName))
-                .AddSingleton<IMessageBusSetup, MessageBusSetup>(x => new MessageBusSetup(msgBusHost, msgBusUsername, msgBusPassword, msgBusReconnect, msgBusExchange, msgBusConnectionName, msgBusQueue, "direct"))
-                //.AddSingleton<IJob, StoreDailyGamesJob>(x => new StoreDailyGamesJob(gameRepo))
-                .BuildServiceProvider();
-            serviceProvider.
+            IServiceProvider serviceProvider = serviceCollection.BuildServiceProvider();
+            
             serviceProvider.GetService<ILoggerFactory>().AddConsole(LogLevel.Debug);
 
             //Setup MongoDB
@@ -72,23 +61,15 @@ namespace GameSchedulerMicroservice
 
         private static void ConfigureServices(IServiceCollection services)
         {
-
             var loggerFactory = new LoggerFactory()
                 .AddConsole();
 
             services.AddSingleton(loggerFactory);
             services.AddLogging();
+
             IConfigurationRoot configuration = GetConfiguration();
-        }
 
-        private static IConfigurationRoot GetConfiguration()
-        {
-            return new ConfigurationBuilder()
-                .SetBasePath(Directory.GetCurrentDirectory())
-                .AddJsonFile($"appsettings.json", optional: true)
-                .Build();//TODO: USE SECRETS!!!
-
-            var mySettings = GetSection("MySettings");
+            var mySettings = configuration.GetSection("MySettings");
             var apiBaseUrl = mySettings.GetValue<string>("MYSPORTSFEEDS_BASEURL");
             var apiUsername = mySettings.GetValue<string>("MYSPORTSFEEDS_USERNAME");
             var apiPassword = mySettings.GetValue<string>("MYSPORTSFEEDS_PASSWORD");
@@ -109,6 +90,49 @@ namespace GameSchedulerMicroservice
             var msgBusConnectionName = messageBusConfiguration.GetValue<string>("ConnectionName");
             var msgBusExchange = messageBusConfiguration.GetValue<string>("Exchange");
             var msgBusQueue = messageBusConfiguration.GetValue<string>("Queue");
+
+            services.AddSingleton(configuration);
+            services.AddLogging();
+            services.AddSingleton<IGameScheduleRepository, GameScheduleRepository>(x =>new GameScheduleRepository(
+                new MongoClient(connectionString), 
+                databaseName, 
+                new LoggerFactory(), 
+                new TimeProvider(DateTime.UtcNow.AddHours(0).ToString("HH:mmtt")), 
+                fullScheduleCollectionName,
+                dailyScheduleCollectionName));
+
+            services.AddSingleton<IGameScheduleWebApiConsumer, GameScheduleWebApiConsumer>(x =>new GameScheduleWebApiConsumer(
+                        new RestClient(apiBaseUrl)
+                        {
+                            Authenticator = new HttpBasicAuthenticator(apiUsername, apiPassword)
+                        }, 
+                        gamScheduleUrl, format, seasonName));
+
+            services.AddSingleton<IMessageBusSetup, MessageBusSetup>(x => new MessageBusSetup(
+                msgBusHost, 
+                msgBusUsername, 
+                msgBusPassword,
+                msgBusReconnect, 
+                msgBusExchange, 
+                msgBusConnectionName,
+                msgBusQueue, "direct"));
+
+            services.AddSingleton<IJob, StoreDailyGamesJob>(x => new StoreDailyGamesJob(new GameScheduleRepository(
+                new MongoClient(connectionString),
+                databaseName,
+                new LoggerFactory(),
+                new TimeProvider(DateTime.UtcNow.AddHours(0).ToString("HH:mmtt")),
+                fullScheduleCollectionName,
+                dailyScheduleCollectionName)));
+
+            services.BuildServiceProvider();
+        }
+
+        private static IConfigurationRoot GetConfiguration()
+        {
+            return new ConfigurationBuilder()
+             .SetBasePath(Directory.GetCurrentDirectory())
+             .AddJsonFile("appsettings.json").Build();
         }
     }
 }

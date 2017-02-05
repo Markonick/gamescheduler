@@ -20,7 +20,7 @@
     "MongoDB.Driver": "2.4.1",
     "RabbitMQ.Client": "4.1.1",
     "System.Linq": "4.3.0",
-    "Quartz": "3.0.0-alpha2"
+    "Quartz": "3.0.0-alpha2",
   },
 
   "frameworks": {
