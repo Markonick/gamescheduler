@@ -1,19 +1,28 @@
 ﻿using System;
 using System.Collections.Specialized;
 using System.Threading.Tasks;
+using GameSchedulerMicroservice;
 using Quartz;
 using Quartz.Impl;
+using Quartz.Spi;
 
 namespace GameScheduler
 {
-    public class JobScheduler
+    public class QuartzScheduler : IQuartzScheduler
     {
+        private readonly IJobFactory _jobFactory;
+
+        public QuartzScheduler(IJobFactory jobFactory)
+        {
+            _jobFactory = jobFactory;
+        }
+
         public async Task Start()
         {
             StdSchedulerFactory factory = new StdSchedulerFactory();
             IScheduler scheduler = await factory.GetScheduler();
+            scheduler.JobFactory = _jobFactory;
 
-            // and start it off
             await scheduler.Start();
             var storeDailyGamesJob = JobBuilder.Create<StoreDailyGamesJob>().Build();
             //var publishGamesJob = JobBuilder.Create<PublishGamesJob>().Build();
@@ -29,6 +38,7 @@ namespace GameScheduler
                     .OnEveryDay()
                     .StartingDailyAt(TimeOfDay.HourAndMinuteOfDay(14, 14)))
                     .Build();*/
+
             var trigger = TriggerBuilder.Create()
                 .WithIdentity("trigger7", "group1")
                 .WithSimpleSchedule(x => x
