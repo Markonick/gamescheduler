@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
 using Quartz;
+using Quartz.Spi;
 using RestSharp;
 using RestSharp.Authenticators;
 
@@ -90,6 +91,8 @@ namespace GameSchedulerMicroservice
                 new GameScheduleRepository(new MongoClient(connectionString),databaseName,new LoggerFactory(),new TimeProvider(DateTime.UtcNow.AddHours(0).ToString("HH:mmtt")),fullScheduleCollectionName,dailyScheduleCollectionName)));
 
             var serviceProvider = services.BuildServiceProvider();
+
+            services.AddSingleton<IJobFactory, DependencyInjectorJobFactory>();
 
             services.AddSingleton<IQuartzScheduler, QuartzScheduler>(x => new QuartzScheduler(new DependencyInjectorJobFactory(serviceProvider)));
 

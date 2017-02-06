@@ -20,8 +20,7 @@ namespace GameScheduler
             StdSchedulerFactory factory = new StdSchedulerFactory();
             IScheduler scheduler = await factory.GetScheduler();
             scheduler.JobFactory = _jobFactory;
-            await scheduler.Start();
-            _jobFactory.
+
             IJobDetail storeDailyGamesJob = JobBuilder.Create<StoreDailyGamesJob>().WithIdentity("job1").Build();
             //var publishGamesJob = JobBuilder.Create<PublishGamesJob>().Build();
 
@@ -46,9 +45,11 @@ namespace GameScheduler
                 .Build();
 
             await scheduler.ScheduleJob(storeDailyGamesJob, trigger);
+
+            await scheduler.Start();
             //await scheduler.ScheduleJob(publishGamesJob, publishGamesJobTrigger); // some sleep to show what's happening
 
-            await Task.Delay(TimeSpan.FromSeconds(30));
+            await Task.Delay(TimeSpan.FromSeconds(1));
         }
 
         public async Task Stop()
