@@ -1,10 +1,8 @@
-﻿using System;
-using System.Threading.Tasks;
-using GameScheduler.Repositories;
-using GameSchedulerMicroservice;
+﻿using System.Threading.Tasks;
+using GameSchedulerMicroservice.Repositories;
 using Quartz;
 
-namespace GameScheduler
+namespace GameSchedulerMicroservice
 {
     public class PublishGamesJob : IJob
     {

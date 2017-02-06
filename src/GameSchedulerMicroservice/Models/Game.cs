@@ -1,7 +1,7 @@
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
-namespace GameSchedulerMicroservice
+namespace GameSchedulerMicroservice.Models
 {
     public class Game
     {

@@ -4,11 +4,11 @@ using Quartz.Spi;
 
 namespace GameSchedulerMicroservice
 {
-    public class DependencyInjectorJobFactory : IJobFactory
+    public class MyJobFactory : IJobFactory
     {
         private readonly IServiceProvider _serviceProvider;
 
-        public DependencyInjectorJobFactory(IServiceProvider serviceProvider)
+        public MyJobFactory(IServiceProvider serviceProvider)
         {
             _serviceProvider = serviceProvider;
         }

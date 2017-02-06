@@ -1,4 +1,4 @@
-﻿namespace GameScheduler
+﻿namespace GameSchedulerMicroservice.Helpers
 {
     public interface ITimeProvider
     {

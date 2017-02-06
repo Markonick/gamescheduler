@@ -1,4 +1,6 @@
-﻿namespace GameScheduler.Repositories
+﻿using GameSchedulerMicroservice.Models;
+
+namespace GameSchedulerMicroservice.Repositories
 {
     public interface IGameScheduleRepository
     {

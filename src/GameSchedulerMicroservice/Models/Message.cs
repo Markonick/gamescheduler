@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace GameScheduler.Repositories
+namespace GameSchedulerMicroservice.Models
 {
     public class Message
     {

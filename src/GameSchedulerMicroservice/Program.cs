@@ -1,12 +1,14 @@
 ﻿using System;
 using System.IO;
-using GameScheduler;
-using GameScheduler.Repositories;
+using System.Threading.Tasks;
+using GameSchedulerMicroservice.Helpers;
+using GameSchedulerMicroservice.Repositories;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
 using Quartz;
+using Quartz.Impl;
 using Quartz.Spi;
 using RestSharp;
 using RestSharp.Authenticators;
@@ -34,11 +36,9 @@ namespace GameSchedulerMicroservice
             repo.StoreFullSchedule(gameScheduleResponse);
 
             //Start daily jobs: 1) Store daily games, 2) Poll for games and publsih messages if upcoming games about to start
-            var sched = serviceProvider.GetService<IQuartzScheduler>();
-            var x = serviceProvider.GetService<IJob>();
-            sched.Start();
-
-            var time = DateTime.UtcNow.AddHours(0).ToString("HH:mmtt");
+            var scheduler = new MyScheduler(repo);
+            Task.Factory.StartNew(async () => await scheduler.Start());
+            //TODO
 
             logger.LogDebug("All done!");
             Console.ReadLine();
@@ -86,16 +86,8 @@ namespace GameSchedulerMicroservice
 
             services.AddSingleton<IMessageBusSetup, MessageBusSetup>(x => new MessageBusSetup(
                 msgBusHost, msgBusUsername, msgBusPassword, msgBusReconnect, msgBusExchange, msgBusConnectionName, msgBusQueue, "direct"));
-
-            services.AddSingleton<IJob, StoreDailyGamesJob>(x => new StoreDailyGamesJob(
-                new GameScheduleRepository(new MongoClient(connectionString),databaseName,new LoggerFactory(),new TimeProvider(DateTime.UtcNow.AddHours(0).ToString("HH:mmtt")),fullScheduleCollectionName,dailyScheduleCollectionName)));
-
-            var serviceProvider = services.BuildServiceProvider();
-
-            services.AddSingleton<IJobFactory, DependencyInjectorJobFactory>();
-
-            services.AddSingleton<IQuartzScheduler, QuartzScheduler>(x => new QuartzScheduler(new DependencyInjectorJobFactory(serviceProvider)));
-
+            services.AddSingleton<ITimeProvider, TimeProvider>();
+            services.AddSingleton<IJob, StoreDailyGamesJob>();
             return services.BuildServiceProvider();
         }
 

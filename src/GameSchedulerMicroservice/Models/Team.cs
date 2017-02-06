@@ -1,4 +1,4 @@
-﻿namespace GameSchedulerMicroservice
+﻿namespace GameSchedulerMicroservice.Models
 {
     public class Team
     {

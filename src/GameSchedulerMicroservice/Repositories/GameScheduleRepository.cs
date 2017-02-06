@@ -1,13 +1,14 @@
 ﻿using System;
 using System.Linq;
-using GameSchedulerMicroservice;
+using GameSchedulerMicroservice.Helpers;
+using GameSchedulerMicroservice.Models;
 using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
 using MongoDB.Driver;
 using Newtonsoft.Json;
 
-namespace GameScheduler.Repositories
+namespace GameSchedulerMicroservice.Repositories
 {
     public class GameScheduleRepository : IGameScheduleRepository
     {

@@ -1,24 +1,19 @@
 ﻿using System;
 using System.Threading.Tasks;
-using GameScheduler.Repositories;
+using GameSchedulerMicroservice.Repositories;
 using Quartz;
 
-namespace GameScheduler
+namespace GameSchedulerMicroservice
 {
     public class StoreDailyGamesJob : IJob
     {
-        private readonly IGameScheduleRepository _gameRepo;
-
-        public StoreDailyGamesJob(IGameScheduleRepository gameRepo)
-        {
-            _gameRepo = gameRepo;
-        }
-
         public async Task Execute(IJobExecutionContext context)
-        {     
-                _gameRepo.StoreDailySchedule();
-                Console.WriteLine("Hi from StoreDailyGameJOb");
-                await Task.Delay(1);
+        {
+            var dataMap = context.JobDetail.JobDataMap;
+            var gameRepo = (IGameScheduleRepository) dataMap["gameRepo"];
+            gameRepo.StoreDailySchedule();
+            Console.WriteLine("Hi from StoreDailyGameJOb");
+            await Task.Delay(0);
         }
     }
 }
