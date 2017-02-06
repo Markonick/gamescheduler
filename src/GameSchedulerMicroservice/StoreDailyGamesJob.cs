@@ -19,7 +19,6 @@ namespace GameScheduler
                 _gameRepo.StoreDailySchedule();
                 Console.WriteLine("Hi from StoreDailyGameJOb");
                 await Task.Delay(1);
-    
         }
     }
 }

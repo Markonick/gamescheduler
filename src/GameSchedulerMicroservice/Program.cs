@@ -1,18 +1,12 @@
 ﻿using System;
 using System.IO;
-using System.Runtime.CompilerServices;
-using System.Threading;
 using GameScheduler;
 using GameScheduler.Repositories;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
 using Quartz;
-using Quartz.Impl;
-using Quartz.Simpl;
-using Quartz.Spi;
 using RestSharp;
 using RestSharp.Authenticators;
 
@@ -25,51 +19,35 @@ namespace GameSchedulerMicroservice
         public static void Main(string[] args)
         {
             //setup our DI
-            var serviceCollection = new ServiceCollection();
+            var serviceProvider = ConfigureServices();
 
-            ConfigureServices(serviceCollection);
-
-            IServiceProvider serviceProvider = serviceCollection.BuildServiceProvider();
-            
-            serviceProvider.GetService<ILoggerFactory>().AddConsole(LogLevel.Debug);
-
-            //Setup MongoDB
+            //Setup MongoDB Web Api Consumer and Logging
             var repo = serviceProvider.GetService<IGameScheduleRepository>();
-
-            //Setup Web Api Consumer and Logging
             var gameScheduleWebApi = serviceProvider.GetService<IGameScheduleWebApiConsumer>();
+            serviceProvider.GetService<ILoggerFactory>().AddConsole(LogLevel.Debug);
             var logger = serviceProvider.GetService<ILoggerFactory>().CreateLogger<Program>();
 
-            // Get Response from Web API 
+            // Get Response from Web API at service startup and store full schedule 
             logger.LogDebug("Calling Game Schedule Web API...");
             var gameScheduleResponse = gameScheduleWebApi.Get();
-            
-            //Store full schedule at service startup
             repo.StoreFullSchedule(gameScheduleResponse);
 
             //Start daily jobs: 1) Store daily games, 2) Poll for games and publsih messages if upcoming games about to start
             var sched = serviceProvider.GetService<IQuartzScheduler>();
+            var x = serviceProvider.GetService<IJob>();
             sched.Start();
 
             var time = DateTime.UtcNow.AddHours(0).ToString("HH:mmtt");
-
-            //Setup  RabbitMQ and publish message to the queue
-            logger.LogDebug("Setting up RabbitMQ...");
-            var publisher = serviceProvider.GetService<IMessageBusSetup>();
 
             logger.LogDebug("All done!");
             Console.ReadLine();
         }
 
-        private static void ConfigureServices(IServiceCollection services)
+        private static IServiceProvider ConfigureServices()
         {
-            var loggerFactory = new LoggerFactory()
-                .AddConsole();
-
-            services.AddSingleton(loggerFactory);
-            services.AddLogging();
-
             IConfigurationRoot configuration = GetConfiguration();
+
+            IServiceCollection services = new ServiceCollection();
 
             var mySettings = configuration.GetSection("MySettings");
             var apiBaseUrl = mySettings.GetValue<string>("MYSPORTSFEEDS_BASEURL");
@@ -93,44 +71,29 @@ namespace GameSchedulerMicroservice
             var msgBusExchange = messageBusConfiguration.GetValue<string>("Exchange");
             var msgBusQueue = messageBusConfiguration.GetValue<string>("Queue");
 
-            services.AddSingleton(configuration);
+            var loggerFactory = new LoggerFactory()
+                .AddConsole();
+
+            services.AddSingleton(loggerFactory);
             services.AddLogging();
-            services.AddSingleton<IGameScheduleRepository, GameScheduleRepository>(x =>new GameScheduleRepository(
-                new MongoClient(connectionString), 
-                databaseName, 
-                new LoggerFactory(), 
-                new TimeProvider(DateTime.UtcNow.AddHours(0).ToString("HH:mmtt")), 
-                fullScheduleCollectionName,
-                dailyScheduleCollectionName));
+
+            services.AddSingleton<IGameScheduleRepository, GameScheduleRepository>(x =>new GameScheduleRepository(new MongoClient(connectionString), databaseName, new LoggerFactory(), 
+                new TimeProvider(DateTime.UtcNow.AddHours(0).ToString("HH:mmtt")), fullScheduleCollectionName, dailyScheduleCollectionName));
 
             services.AddSingleton<IGameScheduleWebApiConsumer, GameScheduleWebApiConsumer>(x =>new GameScheduleWebApiConsumer(
-                        new RestClient(apiBaseUrl)
-                        {
-                            Authenticator = new HttpBasicAuthenticator(apiUsername, apiPassword)
-                        }, 
-                        gamScheduleUrl, format, seasonName));
+                new RestClient(apiBaseUrl) {Authenticator = new HttpBasicAuthenticator(apiUsername, apiPassword)}, gamScheduleUrl, format, seasonName));
 
             services.AddSingleton<IMessageBusSetup, MessageBusSetup>(x => new MessageBusSetup(
-                msgBusHost, 
-                msgBusUsername, 
-                msgBusPassword,
-                msgBusReconnect, 
-                msgBusExchange, 
-                msgBusConnectionName,
-                msgBusQueue, "direct"));
+                msgBusHost, msgBusUsername, msgBusPassword, msgBusReconnect, msgBusExchange, msgBusConnectionName, msgBusQueue, "direct"));
 
-            IJobFactory jobFactory = new SimpleJobFactory();
-            services.AddSingleton<IQuartzScheduler, QuartzScheduler>(x => new QuartzScheduler(jobFactory));
+            services.AddSingleton<IJob, StoreDailyGamesJob>(x => new StoreDailyGamesJob(
+                new GameScheduleRepository(new MongoClient(connectionString),databaseName,new LoggerFactory(),new TimeProvider(DateTime.UtcNow.AddHours(0).ToString("HH:mmtt")),fullScheduleCollectionName,dailyScheduleCollectionName)));
 
-            services.AddSingleton<IJob, StoreDailyGamesJob>(x => new StoreDailyGamesJob(new GameScheduleRepository(
-                new MongoClient(connectionString),
-                databaseName,
-                new LoggerFactory(),
-                new TimeProvider(DateTime.UtcNow.AddHours(0).ToString("HH:mmtt")),
-                fullScheduleCollectionName,
-                dailyScheduleCollectionName)));
+            var serviceProvider = services.BuildServiceProvider();
 
-            services.BuildServiceProvider();
+            services.AddSingleton<IQuartzScheduler, QuartzScheduler>(x => new QuartzScheduler(new DependencyInjectorJobFactory(serviceProvider)));
+
+            return services.BuildServiceProvider();
         }
 
         private static IConfigurationRoot GetConfiguration()

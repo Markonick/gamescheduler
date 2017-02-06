@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Collections.Specialized;
 using System.Threading.Tasks;
-using GameSchedulerMicroservice;
 using Quartz;
 using Quartz.Impl;
 using Quartz.Spi;
@@ -22,9 +20,9 @@ namespace GameScheduler
             StdSchedulerFactory factory = new StdSchedulerFactory();
             IScheduler scheduler = await factory.GetScheduler();
             scheduler.JobFactory = _jobFactory;
-
             await scheduler.Start();
-            var storeDailyGamesJob = JobBuilder.Create<StoreDailyGamesJob>().Build();
+            _jobFactory.
+            IJobDetail storeDailyGamesJob = JobBuilder.Create<StoreDailyGamesJob>().WithIdentity("job1").Build();
             //var publishGamesJob = JobBuilder.Create<PublishGamesJob>().Build();
 
             /*var storeDailyGamesTrigger = TriggerBuilder.Create()
