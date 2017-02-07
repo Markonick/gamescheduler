@@ -1,9 +1,11 @@
-﻿using MongoDB.Driver;
+﻿using GameSchedulerMicroservice.Models;
 
-namespace GameScheduler.Repositories
+namespace GameSchedulerMicroservice.Repositories
 {
     public interface IGameScheduleRepository
     {
-        IMongoDatabase  Setup();
+        void StoreFullSchedule(dynamic response);
+        void StoreDailySchedule();
+        Message GetNextGames();
     }
 }

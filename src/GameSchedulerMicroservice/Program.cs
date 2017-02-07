@@ -1,16 +1,15 @@
 ﻿using System;
 using System.IO;
-using System.Linq;
-using System.Threading;
-using GameScheduler.Repositories;
+using System.Threading.Tasks;
+using GameSchedulerMicroservice.Helpers;
+using GameSchedulerMicroservice.Repositories;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using MongoDB.Bson;
-using MongoDB.Bson.Serialization;
 using MongoDB.Driver;
-using MongoDB.Driver.Linq;
-using Newtonsoft.Json;
+using Quartz;
+using Quartz.Impl;
+using Quartz.Spi;
 using RestSharp;
 using RestSharp.Authenticators;
 
@@ -22,29 +21,49 @@ namespace GameSchedulerMicroservice
 
         public static void Main(string[] args)
         {
-            var cancellationTokenSource = new CancellationTokenSource();
+            //setup our DI
+            var serviceProvider = ConfigureServices();
 
-            var builder = new ConfigurationBuilder()
-               .SetBasePath(Directory.GetCurrentDirectory())
-               .AddJsonFile("appsettings.json");
+            //Setup MongoDB Web Api Consumer and Logging
+            var repo = serviceProvider.GetService<IGameScheduleRepository>();
+            var gameScheduleWebApi = serviceProvider.GetService<IGameScheduleWebApiConsumer>();
+            serviceProvider.GetService<ILoggerFactory>().AddConsole(LogLevel.Debug);
+            var logger = serviceProvider.GetService<ILoggerFactory>().CreateLogger<Program>();
 
-            var configuration = builder.Build();
+            // Get Response from Web API at service startup and store full schedule 
+            logger.LogDebug("Calling Game Schedule Web API...");
+            var gameScheduleResponse = gameScheduleWebApi.Get();
+            repo.StoreFullSchedule(gameScheduleResponse);
 
-            //TODO: USE SECRETS!!!
+            //Start daily jobs: 1) Store daily games, 2) Poll for games and publsih messages if upcoming games about to start
+            var scheduler = new MyScheduler(repo);
+            Task.Factory.StartNew(async () => await scheduler.Start());
+            //TODO
+
+            logger.LogDebug("All done!");
+            Console.ReadLine();
+        }
+
+        private static IServiceProvider ConfigureServices()
+        {
+            IConfigurationRoot configuration = GetConfiguration();
+
+            IServiceCollection services = new ServiceCollection();
+
             var mySettings = configuration.GetSection("MySettings");
-            var messageBusConfiguration = configuration.GetSection("MessageBusConfiguration");
-
             var apiBaseUrl = mySettings.GetValue<string>("MYSPORTSFEEDS_BASEURL");
             var apiUsername = mySettings.GetValue<string>("MYSPORTSFEEDS_USERNAME");
             var apiPassword = mySettings.GetValue<string>("MYSPORTSFEEDS_PASSWORD");
             var seasonName = mySettings.GetValue<string>("SEASON_NAME");
             var connectionString = mySettings.GetValue<string>("CONNECTION_STRING");
-            var databaseName =  mySettings.GetValue<string>("DATABASE_NAME");
-            var collectionName = mySettings.GetValue<string>("COLLECTION_NAME");
+            var databaseName = mySettings.GetValue<string>("DATABASE_NAME");
+            var fullScheduleCollectionName = mySettings.GetValue<string>("FULL_SCHEDULE_COLLECTION_NAME");
+            var dailyScheduleCollectionName = mySettings.GetValue<string>("DAILY_SCHEDULE_COLLECTION_NAME");
             var format = mySettings.GetValue<string>("FORMAT");
             var gamScheduleUrl = mySettings.GetValue<string>("GAMESCHEDULE_URL");
             var interval = mySettings.GetValue<int>("API_REQUEST_INTERVAL_MS");
 
+            var messageBusConfiguration = configuration.GetSection("MessageBusConfiguration");
             var msgBusHost = messageBusConfiguration.GetValue<string>("Host");
             var msgBusUsername = messageBusConfiguration.GetValue<string>("Username");
             var msgBusPassword = messageBusConfiguration.GetValue<string>("Password");
@@ -52,45 +71,31 @@ namespace GameSchedulerMicroservice
             var msgBusConnectionName = messageBusConfiguration.GetValue<string>("ConnectionName");
             var msgBusExchange = messageBusConfiguration.GetValue<string>("Exchange");
             var msgBusQueue = messageBusConfiguration.GetValue<string>("Queue");
-           
-            //setup our DI
-            var serviceProvider = new ServiceCollection()
-                .AddLogging()
-                .AddSingleton< IGameScheduleRepository, GameScheduleRepository>(x => new GameScheduleRepository(connectionString, databaseName))
-                .AddSingleton<IGameScheduleWebApiConsumer, GameScheduleWebApiConsumer>(x => new GameScheduleWebApiConsumer(new RestClient(apiBaseUrl) { Authenticator = new HttpBasicAuthenticator(apiUsername, apiPassword) }, gamScheduleUrl, format, seasonName))
-                .AddSingleton<IMessageBusSetup, MessageBusSetup>(x => new MessageBusSetup(msgBusHost, msgBusUsername, msgBusPassword, msgBusReconnect, msgBusExchange, msgBusConnectionName, msgBusQueue, "direct"))
-                .BuildServiceProvider();
 
-            serviceProvider.GetService<ILoggerFactory>().AddConsole(LogLevel.Debug);
+            var loggerFactory = new LoggerFactory()
+                .AddConsole();
 
-            //Setup MongoDB
-            var repo = serviceProvider.GetService<IGameScheduleRepository>();
-            var db = repo.Setup();
-            var collection = db.GetCollection<BsonDocument>(collectionName);
+            services.AddSingleton(loggerFactory);
+            services.AddLogging();
 
-            //Setup Web Api Consumer and Logging
-            var gameScheduleWebApi = serviceProvider.GetService<IGameScheduleWebApiConsumer>();
-            var logger = serviceProvider.GetService<ILoggerFactory>().CreateLogger<Program>();
+            services.AddSingleton<IGameScheduleRepository, GameScheduleRepository>(x =>new GameScheduleRepository(new MongoClient(connectionString), databaseName, new LoggerFactory(), 
+                new TimeProvider(DateTime.UtcNow.AddHours(0).ToString("HH:mmtt")), fullScheduleCollectionName, dailyScheduleCollectionName));
 
-            // Get Response from Web API 
-            logger.LogDebug("Calling Game Schedule Web API...");
-            var gameScheduleResponse = gameScheduleWebApi.Get();
+            services.AddSingleton<IGameScheduleWebApiConsumer, GameScheduleWebApiConsumer>(x =>new GameScheduleWebApiConsumer(
+                new RestClient(apiBaseUrl) {Authenticator = new HttpBasicAuthenticator(apiUsername, apiPassword)}, gamScheduleUrl, format, seasonName));
 
-            //... store JSON to MongoDb database
-            logger.LogDebug("Storing JSON to MongoDb database...");
-            var jsonData = JsonConvert.SerializeObject(gameScheduleResponse);
-            var document = BsonSerializer.Deserialize<dynamic>(jsonData);
-            collection.InsertOne(document[0]);
+            services.AddSingleton<IMessageBusSetup, MessageBusSetup>(x => new MessageBusSetup(
+                msgBusHost, msgBusUsername, msgBusPassword, msgBusReconnect, msgBusExchange, msgBusConnectionName, msgBusQueue, "direct"));
+            services.AddSingleton<ITimeProvider, TimeProvider>();
+            services.AddSingleton<IJob, StoreDailyGamesJob>();
+            return services.BuildServiceProvider();
+        }
 
-            //Setup  RabbitMQ and publish message to the queue
-            logger.LogDebug("Setting up RabbitMQ...");
-            var publisher = serviceProvider.GetService<IMessageBusSetup>();
-
-            //Find today's games and create list of games
-            publisher.Publish("yo, it's working again");
-            var result = 
-            Console.ReadLine();
-            logger.LogDebug("All done!");
+        private static IConfigurationRoot GetConfiguration()
+        {
+            return new ConfigurationBuilder()
+             .SetBasePath(Directory.GetCurrentDirectory())
+             .AddJsonFile("appsettings.json").Build();
         }
     }
 }
