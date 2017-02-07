@@ -18,10 +18,19 @@ An MVC Web Application will then be responsible for routing GET REST API request
 For those of you who happen to take a look at this project, these are the current points under consideration 
 which will need to be introduced:
 
+
 1) User Secrets for API password
+
 2) Better refactoring of code
+
 3) Make methods for (storing?)/getting to/from database async
+
 4) Tests (not TDD, next time!)
+
 5) Installer
+
 6) Docker
+
 7) Deploy to AWS with teamcity and octopus deploy
+
+8) and much more...probably
