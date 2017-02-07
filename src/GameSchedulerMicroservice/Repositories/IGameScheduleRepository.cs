@@ -1,4 +1,5 @@
-﻿using GameSchedulerMicroservice.Models;
+﻿using System.Collections.Generic;
+using GameSchedulerMicroservice.Models;
 
 namespace GameSchedulerMicroservice.Repositories
 {
@@ -6,6 +7,6 @@ namespace GameSchedulerMicroservice.Repositories
     {
         void StoreFullSchedule(dynamic response);
         void StoreDailySchedule();
-        Message GetNextGames();
+        IList<Message> GetNextGames();
     }
 }

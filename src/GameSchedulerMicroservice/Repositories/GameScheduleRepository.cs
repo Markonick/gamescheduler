@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using GameSchedulerMicroservice.Helpers;
 using GameSchedulerMicroservice.Models;
@@ -47,7 +49,7 @@ namespace GameSchedulerMicroservice.Repositories
         {
             _logger.CreateLogger<Program>().LogDebug("Storing Daily Schedule to MongoDb database...");
             var db = _client.GetDatabase(_databaseName);
-            var today = DateTime.Today.ToString("yyyy-MM-dd");
+            var today = _timeProvider.Date;
             var sourceCollection = db.GetCollection<BsonDocument>(_fullScheduleCollectionName);
             var filter = Builders<BsonDocument>.Filter.Eq("date", today);
             var queryResult = sourceCollection.Find(filter).ToList();
@@ -60,26 +62,28 @@ namespace GameSchedulerMicroservice.Repositories
             }
         }
         
-        public Message GetNextGames()
+        public IList<Message> GetNextGames()
         {
             var db = _client.GetDatabase(_databaseName);
             var collection = db.GetCollection<Game>(_dailyScheduleCollectionName);
-            var now = _timeProvider.Time;
-            var filter = Builders<Game>.Filter.Eq("time", now);
+            var today = _timeProvider.Date;
+            var filter = Builders<Game>.Filter.Eq("date", today);
             var queryResult = collection.Find(filter).ToList();
+            var message = new List<Message>();
 
             if (queryResult == null)
             {
                 return null;
             }
 
-            var message = new Message()
+            foreach (var elem in queryResult)
             {
-                Time = now,
-                GameId = queryResult
-                        .Where(x => x.time == now)
-                        .Select((x, y) => x.awayTeam.Abbreviation + "-" + x.homeTeam.Abbreviation)
-            };
+                message.Add(new Message()
+                {
+                    Time = elem.time,
+                    GameId = elem.awayTeam.Abbreviation + "-" + elem.homeTeam.Abbreviation
+                });
+            }
 
             return message;
         }

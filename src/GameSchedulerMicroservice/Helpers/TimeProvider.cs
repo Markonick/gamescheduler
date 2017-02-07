@@ -2,11 +2,11 @@
 {
     public class TimeProvider : ITimeProvider
     {
-        public string Time { get; set; }
+        public string Date { get; set; }
 
-        public TimeProvider(string time)
+        public TimeProvider(string date)
         {
-            Time = time;
+            Date = date;
         }
     }
 }
