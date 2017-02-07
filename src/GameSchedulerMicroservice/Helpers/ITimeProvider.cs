@@ -2,6 +2,6 @@
 {
     public interface ITimeProvider
     {
-        string Time { get; set; }
+        string Date { get; set; }
     }
 }
