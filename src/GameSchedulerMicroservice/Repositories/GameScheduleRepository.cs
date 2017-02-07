@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
+﻿using System.Collections.Generic;
 using GameSchedulerMicroservice.Helpers;
 using GameSchedulerMicroservice.Models;
 using Microsoft.Extensions.Logging;
@@ -34,8 +31,10 @@ namespace GameSchedulerMicroservice.Repositories
         public void StoreFullSchedule(dynamic response)
         {
             _logger.CreateLogger<Program>().LogDebug("Storing Full Schedule to MongoDb database...");
+
             var db = _client.GetDatabase(_databaseName);
             var collection = db.GetCollection<BsonDocument>(_fullScheduleCollectionName);
+
             var jsonData = JsonConvert.SerializeObject(response);
             var array = BsonSerializer.Deserialize<BsonArray>(jsonData);
 
@@ -47,34 +46,42 @@ namespace GameSchedulerMicroservice.Repositories
 
         public void StoreDailySchedule()
         {
-            _logger.CreateLogger<Program>().LogDebug("Storing Daily Schedule to MongoDb database...");
+            _logger.CreateLogger<Program>().LogDebug("Storing Daily Schedule to MongoDb...");
+            
             var db = _client.GetDatabase(_databaseName);
-            var today = _timeProvider.Date;
             var sourceCollection = db.GetCollection<BsonDocument>(_fullScheduleCollectionName);
+            var targetCollection = db.GetCollection<BsonDocument>(_dailyScheduleCollectionName);
+
+            var today = _timeProvider.Date;
             var filter = Builders<BsonDocument>.Filter.Eq("date", today);
             var queryResult = sourceCollection.Find(filter).ToList();
 
-            var targetCollection = db.GetCollection<BsonDocument>(_dailyScheduleCollectionName);
 
             foreach (var document in queryResult)
             {
                 targetCollection.InsertOne(document, null);
             }
+
+            _logger.CreateLogger<Program>().LogDebug("Storing Daily Game Schedule to MongoDb complete!");
         }
         
         public IList<Message> GetNextGames()
         {
+            _logger.CreateLogger<Program>().LogDebug("Reading DB to create a message with the daily list of games...");
+
             var db = _client.GetDatabase(_databaseName);
             var collection = db.GetCollection<Game>(_dailyScheduleCollectionName);
+
             var today = _timeProvider.Date;
             var filter = Builders<Game>.Filter.Eq("date", today);
             var queryResult = collection.Find(filter).ToList();
-            var message = new List<Message>();
 
             if (queryResult == null)
             {
                 return null;
             }
+
+            var message = new List<Message>();
 
             foreach (var elem in queryResult)
             {
@@ -84,6 +91,8 @@ namespace GameSchedulerMicroservice.Repositories
                     GameId = elem.awayTeam.Abbreviation + "-" + elem.homeTeam.Abbreviation
                 });
             }
+
+            _logger.CreateLogger<Program>().LogDebug("Daily list of games has been published to RabbitMQ!");
 
             return message;
         }

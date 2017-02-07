@@ -11,8 +11,9 @@ namespace GameSchedulerMicroservice
         {
             var dataMap = context.JobDetail.JobDataMap;
             var gameRepo = (IGameScheduleRepository) dataMap["gameRepo"];
+            
             gameRepo.StoreDailySchedule();
-            Console.WriteLine("Hi from StoreDailyGameJOb");
+
             await Task.Delay(0);
         }
     }

@@ -7,12 +7,12 @@ using Quartz.Impl.Matchers;
 
 namespace GameSchedulerMicroservice
 {
-    public class MyScheduler
+    public class DailyJobScheduler
     {
         private readonly IGameScheduleRepository _gameRepository;
         private readonly IMessageBusSetup _messageBusSetup;
 
-        public MyScheduler(IGameScheduleRepository gameRepository, IMessageBusSetup messageBusSetup)
+        public DailyJobScheduler(IGameScheduleRepository gameRepository, IMessageBusSetup messageBusSetup)
         {
             _gameRepository = gameRepository;
             _messageBusSetup = messageBusSetup;

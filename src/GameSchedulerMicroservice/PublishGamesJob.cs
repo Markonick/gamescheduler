@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Threading.Tasks;
 using GameSchedulerMicroservice.Repositories;
 using Quartz;
 
@@ -11,8 +12,10 @@ namespace GameSchedulerMicroservice
             var dataMap = context.JobDetail.JobDataMap;
             var gameRepo = (IGameScheduleRepository)dataMap["gameRepo"];
             var messageBusSetup = (IMessageBusSetup)dataMap["messageBusSetup"];
+
             var message = gameRepo.GetNextGames();
             messageBusSetup.Publish(message);
+
             await Task.Delay(1);
         }
     }
