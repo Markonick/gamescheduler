@@ -35,7 +35,7 @@ namespace GameSchedulerMicroservice
             repo.StoreFullSchedule(gameScheduleResponse);
 
             //Start daily jobs: 1) Store daily games, 2) Poll for games and publsih messages if upcoming games about to start
-            var scheduler = new MyScheduler(repo, mesgBus);
+            var scheduler = new DailyJobScheduler(repo, mesgBus);
             Task.Factory.StartNew(async () => await scheduler.Start());
             //TODO
 
