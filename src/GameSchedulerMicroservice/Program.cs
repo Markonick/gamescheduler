@@ -26,9 +26,9 @@ namespace GameSchedulerMicroservice
             var repo = serviceProvider.GetService<IGameScheduleRepository>();
             var mesgBus = serviceProvider.GetService<IMessageBusSetup>();
             var gameScheduleWebApi = serviceProvider.GetService<IGameScheduleWebApiConsumer>();
-            serviceProvider.GetService<ILoggerFactory>().AddConsole(LogLevel.Debug);
-            var logger = serviceProvider.GetService<ILoggerFactory>().CreateLogger<Program>();
-            
+            var logger = serviceProvider.GetService<ILoggerFactory>()
+                .CreateLogger<Program>();
+
             // Get Response from Web API at service startup and store full schedule 
             logger.LogDebug("Calling Game Schedule Web API...");
             var gameScheduleResponse = gameScheduleWebApi.Get();
@@ -72,13 +72,13 @@ namespace GameSchedulerMicroservice
             var msgBusQueue = messageBusConfiguration.GetValue<string>("Queue");
 
             var loggerFactory = new LoggerFactory()
-                .AddConsole();
+                .AddConsole(LogLevel.Debug);
 
             services.AddSingleton(loggerFactory);
             services.AddLogging();
 
             var date = DateTime.Today.ToString("yyyy-MM-dd");
-            services.AddSingleton<IGameScheduleRepository, GameScheduleRepository>(x =>new GameScheduleRepository(new MongoClient(connectionString), databaseName, new LoggerFactory(), 
+            services.AddSingleton<IGameScheduleRepository, GameScheduleRepository>(x =>new GameScheduleRepository(new MongoClient(connectionString), databaseName, loggerFactory, 
                 new TimeProvider(date), fullScheduleCollectionName, dailyScheduleCollectionName));
 
             services.AddSingleton<IGameScheduleWebApiConsumer, GameScheduleWebApiConsumer>(x =>new GameScheduleWebApiConsumer(

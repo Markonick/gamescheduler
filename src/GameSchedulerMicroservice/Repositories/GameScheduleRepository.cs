@@ -30,7 +30,7 @@ namespace GameSchedulerMicroservice.Repositories
 
         public void StoreFullSchedule(dynamic response)
         {
-            _logger.CreateLogger<Program>().LogDebug("Storing Full Schedule to MongoDb database...");
+            _logger.CreateLogger<IGameScheduleRepository>().LogDebug("Storing Full Schedule to MongoDb database...");
 
             var db = _client.GetDatabase(_databaseName);
             var collection = db.GetCollection<BsonDocument>(_fullScheduleCollectionName);
@@ -42,11 +42,13 @@ namespace GameSchedulerMicroservice.Repositories
             {
                 collection.InsertOne(document, null);
             }
+
+            _logger.CreateLogger<IGameScheduleRepository>().LogDebug("Storing Full Game Schedule to MongoDb complete!");
         }
 
         public void StoreDailySchedule()
         {
-            _logger.CreateLogger<Program>().LogDebug("Storing Daily Schedule to MongoDb...");
+            _logger.CreateLogger<IGameScheduleRepository>().LogDebug("Storing Daily Schedule to MongoDb...");
             
             var db = _client.GetDatabase(_databaseName);
             var sourceCollection = db.GetCollection<BsonDocument>(_fullScheduleCollectionName);
@@ -55,19 +57,18 @@ namespace GameSchedulerMicroservice.Repositories
             var today = _timeProvider.Date;
             var filter = Builders<BsonDocument>.Filter.Eq("date", today);
             var queryResult = sourceCollection.Find(filter).ToList();
-
-
+            
             foreach (var document in queryResult)
             {
                 targetCollection.InsertOne(document, null);
             }
 
-            _logger.CreateLogger<Program>().LogDebug("Storing Daily Game Schedule to MongoDb complete!");
+            _logger.CreateLogger<IGameScheduleRepository>().LogDebug("Storing Daily Game Schedule to MongoDb complete!");
         }
         
         public IList<Message> GetNextGames()
         {
-            _logger.CreateLogger<Program>().LogDebug("Reading DB to create a message with the daily list of games...");
+            _logger.CreateLogger<IGameScheduleRepository>().LogDebug("Reading DB to create a message with the daily list of games...");
 
             var db = _client.GetDatabase(_databaseName);
             var collection = db.GetCollection<Game>(_dailyScheduleCollectionName);
@@ -92,7 +93,7 @@ namespace GameSchedulerMicroservice.Repositories
                 });
             }
 
-            _logger.CreateLogger<Program>().LogDebug("Daily list of games has been published to RabbitMQ!");
+            _logger.CreateLogger<IGameScheduleRepository>().LogDebug("Daily list of games has been published to RabbitMQ!");
 
             return message;
         }
