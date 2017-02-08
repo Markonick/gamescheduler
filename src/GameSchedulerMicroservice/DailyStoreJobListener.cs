@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using GameSchedulerMicroservice;
+using GameSchedulerMicroservice.Repositories;
 using Quartz;
 using Quartz.Listener;
 
@@ -24,9 +25,16 @@ namespace GameScheduler
 
         public async Task JobWasExecuted(IJobExecutionContext context, JobExecutionException jobException)
         {
-            await Task.Delay(0);// JobWasExecuted(context, jobException);
+            var dataMap = context.JobDetail.JobDataMap;
+            var gameRepo = (IGameScheduleRepository)dataMap["gameRepo"];
+            var messageBusSetup = (IMessageBusSetup)dataMap["messageBusSetup"];
 
+            var message = gameRepo.GetNextGames();
+            messageBusSetup.Publish(message);
+
+            await Task.Delay(1000);// JobWasExecuted(context, jobException);
             Console.WriteLine("Job Executed: {0}", context.JobDetail.Key);
+            await Task.Delay(0);// JobWasExecuted(context, jobException);
         }
     }
 }

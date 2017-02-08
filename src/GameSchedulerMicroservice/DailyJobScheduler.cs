@@ -37,7 +37,7 @@ namespace GameSchedulerMicroservice
             //Triggers
             var storeDailyGamesTrigger = TriggerBuilder.Create()
                 .WithDailyTimeIntervalSchedule(s => s.WithIntervalInHours(24)
-                .StartingDailyAt(TimeOfDay.HourAndMinuteOfDay(19, 03))
+                .StartingDailyAt(TimeOfDay.HourAndMinuteOfDay(19, 24))
                 .InTimeZone(TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time")))
                 .Build();
 
