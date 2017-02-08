@@ -19,7 +19,7 @@ namespace GameSchedulerMicroservice
 
         public static void Main(string[] args)
         {
-            //setup our DI
+            //Setup our DI container
             var serviceProvider = ConfigureServices();
 
             //Setup MongoDB Web Api Consumer and Logging
@@ -29,13 +29,13 @@ namespace GameSchedulerMicroservice
             var logger = serviceProvider.GetService<ILoggerFactory>()
                 .CreateLogger<Program>();
 
-            // Get Response from Web API at service startup and store full schedule 
+            //Get Response from Web API at service startup and store full schedule 
             logger.LogDebug("Calling Game Schedule Web API...");
             var gameScheduleResponse = gameScheduleWebApi.Get();
             repo.StoreFullSchedule(gameScheduleResponse);
 
             //Start daily jobs: 1) Store daily games, 2) Poll for games and publsih messages if upcoming games about to start
-            var scheduler = new DailyJobScheduler(repo, mesgBus);
+            var scheduler = new DailyJobScheduler(repo, mesgBus, logger);
             Task.Factory.StartNew(async () => await scheduler.Start());
             //TODO
 
@@ -70,6 +70,7 @@ namespace GameSchedulerMicroservice
             var msgBusConnectionName = messageBusConfiguration.GetValue<string>("ConnectionName");
             var msgBusExchange = messageBusConfiguration.GetValue<string>("Exchange");
             var msgBusQueue = messageBusConfiguration.GetValue<string>("Queue");
+            var exchangeType = messageBusConfiguration.GetValue<string>("ExchangeType");
 
             var loggerFactory = new LoggerFactory()
                 .AddConsole(LogLevel.Debug);
@@ -85,7 +86,7 @@ namespace GameSchedulerMicroservice
                 new RestClient(apiBaseUrl) {Authenticator = new HttpBasicAuthenticator(apiUsername, apiPassword)}, gamScheduleUrl, format, seasonName));
 
             services.AddSingleton<IMessageBusSetup, MessageBusSetup>(x => new MessageBusSetup(
-                msgBusHost, msgBusUsername, msgBusPassword, msgBusReconnect, msgBusExchange, msgBusConnectionName, msgBusQueue, "direct"));
+                msgBusHost, msgBusUsername, msgBusPassword, msgBusReconnect, msgBusExchange, msgBusConnectionName, msgBusQueue, exchangeType));
 
             services.AddSingleton<ITimeProvider, TimeProvider>();
 

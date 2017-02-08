@@ -2,6 +2,7 @@
 using System.Threading.Tasks;
 using GameScheduler;
 using GameSchedulerMicroservice.Repositories;
+using Microsoft.Extensions.Logging;
 using Quartz;
 using Quartz.Impl;
 using Quartz.Impl.Matchers;
@@ -12,11 +13,13 @@ namespace GameSchedulerMicroservice
     {
         private readonly IGameScheduleRepository _gameRepository;
         private readonly IMessageBusSetup _messageBusSetup;
+        private readonly ILogger _logger;
 
-        public DailyJobScheduler(IGameScheduleRepository gameRepository, IMessageBusSetup messageBusSetup)
+        public DailyJobScheduler(IGameScheduleRepository gameRepository, IMessageBusSetup messageBusSetup, ILogger logger)
         {
             _gameRepository = gameRepository;
             _messageBusSetup = messageBusSetup;
+            _logger = logger;
         }
 
         public async Task Start()
@@ -27,27 +30,23 @@ namespace GameSchedulerMicroservice
 
             //Jobs
             var storeDailyGamesJob = JobBuilder.Create<StoreDailyGamesJob>()
-                .WithIdentity("job1")
-                .Build();
-            
-            var publishGamesJob = JobBuilder.Create<PublishGamesJob>()
-                .WithIdentity("job2")
+                .WithIdentity("storeDailyGamesJob")
                 .Build();
 
             //Triggers
             var storeDailyGamesTrigger = TriggerBuilder.Create()
                 .WithDailyTimeIntervalSchedule(s => s.WithIntervalInHours(24)
-                .StartingDailyAt(TimeOfDay.HourAndMinuteOfDay(19, 24))
+                .StartingDailyAt(TimeOfDay.HourAndMinuteOfDay(15, 46))
                 .InTimeZone(TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time")))
                 .Build();
 
             //Pass params to jobs through jobdatamap
             storeDailyGamesJob.JobDataMap["gameRepo"] = _gameRepository;
-            publishGamesJob.JobDataMap["gameRepo"] = _gameRepository;
-            publishGamesJob.JobDataMap["messageBusSetup"] = _messageBusSetup;
+            storeDailyGamesJob.JobDataMap["messageBusSetup"] = _messageBusSetup;
+            storeDailyGamesJob.JobDataMap["logger"] = _logger;
 
-            var myJobListener = new DailyStoreJobListener {Name = "MyJobListener1"};
-            scheduler.ListenerManager.AddJobListener(myJobListener, KeyMatcher<JobKey>.KeyEquals(new JobKey("job1")));
+            var dailyStoreJobListener = new DailyStoreJobListener {Name = "dailyStoreJobListener" };
+            scheduler.ListenerManager.AddJobListener(dailyStoreJobListener, KeyMatcher<JobKey>.KeyEquals(new JobKey("storeDailyGamesJob")));
             
             await scheduler.ScheduleJob(storeDailyGamesJob, storeDailyGamesTrigger);
         }

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using GameSchedulerMicroservice;
 using GameSchedulerMicroservice.Repositories;
+using Microsoft.Extensions.Logging;
 using Quartz;
 using Quartz.Listener;
 
@@ -28,13 +29,14 @@ namespace GameScheduler
             var dataMap = context.JobDetail.JobDataMap;
             var gameRepo = (IGameScheduleRepository)dataMap["gameRepo"];
             var messageBusSetup = (IMessageBusSetup)dataMap["messageBusSetup"];
-
+            var logger = (ILogger)dataMap["logger"];
             var message = gameRepo.GetNextGames();
+
             messageBusSetup.Publish(message);
 
-            await Task.Delay(1000);// JobWasExecuted(context, jobException);
-            Console.WriteLine("Job Executed: {0}", context.JobDetail.Key);
-            await Task.Delay(0);// JobWasExecuted(context, jobException);
+            await Task.Delay(100);
+            logger.LogDebug("Messaged published to RabbitMQ!");
+            await Task.Delay(0);
         }
     }
 }

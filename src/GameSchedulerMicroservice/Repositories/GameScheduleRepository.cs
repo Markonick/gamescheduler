@@ -48,8 +48,6 @@ namespace GameSchedulerMicroservice.Repositories
 
         public void StoreDailySchedule()
         {
-            _logger.CreateLogger<IGameScheduleRepository>().LogDebug("Storing Daily Schedule to MongoDb...");
-            
             var db = _client.GetDatabase(_databaseName);
             var sourceCollection = db.GetCollection<BsonDocument>(_fullScheduleCollectionName);
             var targetCollection = db.GetCollection<BsonDocument>(_dailyScheduleCollectionName);
@@ -62,14 +60,10 @@ namespace GameSchedulerMicroservice.Repositories
             {
                 targetCollection.InsertOne(document, null);
             }
-
-            _logger.CreateLogger<IGameScheduleRepository>().LogDebug("Storing Daily Game Schedule to MongoDb complete!");
         }
         
         public IList<Message> GetNextGames()
         {
-            _logger.CreateLogger<IGameScheduleRepository>().LogDebug("Reading DB to create a message with the daily list of games...");
-
             var db = _client.GetDatabase(_databaseName);
             var collection = db.GetCollection<Game>(_dailyScheduleCollectionName);
 
@@ -92,8 +86,6 @@ namespace GameSchedulerMicroservice.Repositories
                     GameId = elem.awayTeam.Abbreviation + "-" + elem.homeTeam.Abbreviation
                 });
             }
-
-            _logger.CreateLogger<IGameScheduleRepository>().LogDebug("Daily list of games has been published to RabbitMQ!");
 
             return message;
         }
