@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using GameSchedulerMicroservice;
+using GameSchedulerMicroservice.Repositories;
+using Microsoft.Extensions.Logging;
 using Quartz;
 using Quartz.Listener;
 
@@ -24,9 +26,17 @@ namespace GameScheduler
 
         public async Task JobWasExecuted(IJobExecutionContext context, JobExecutionException jobException)
         {
-            await Task.Delay(0);// JobWasExecuted(context, jobException);
+            var dataMap = context.JobDetail.JobDataMap;
+            var gameRepo = (IGameScheduleRepository)dataMap["gameRepo"];
+            var messageBusSetup = (IMessageBusSetup)dataMap["messageBusSetup"];
+            var logger = (ILogger)dataMap["logger"];
+            var message = gameRepo.GetNextGames();
 
-            Console.WriteLine("Job Executed: {0}", context.JobDetail.Key);
+            messageBusSetup.Publish(message);
+
+            await Task.Delay(100);
+            logger.LogDebug("Messaged published to RabbitMQ!");
+            await Task.Delay(0);
         }
     }
 }

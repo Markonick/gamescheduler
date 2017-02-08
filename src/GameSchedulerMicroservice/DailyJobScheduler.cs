@@ -1,6 +1,8 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Threading.Tasks;
 using GameScheduler;
 using GameSchedulerMicroservice.Repositories;
+using Microsoft.Extensions.Logging;
 using Quartz;
 using Quartz.Impl;
 using Quartz.Impl.Matchers;
@@ -11,11 +13,13 @@ namespace GameSchedulerMicroservice
     {
         private readonly IGameScheduleRepository _gameRepository;
         private readonly IMessageBusSetup _messageBusSetup;
+        private readonly ILogger _logger;
 
-        public DailyJobScheduler(IGameScheduleRepository gameRepository, IMessageBusSetup messageBusSetup)
+        public DailyJobScheduler(IGameScheduleRepository gameRepository, IMessageBusSetup messageBusSetup, ILogger logger)
         {
             _gameRepository = gameRepository;
             _messageBusSetup = messageBusSetup;
+            _logger = logger;
         }
 
         public async Task Start()
@@ -24,31 +28,25 @@ namespace GameSchedulerMicroservice
             var scheduler = await factory.GetScheduler();
             await scheduler.Start();
 
-            //Store every day at 00:00
+            //Jobs
             var storeDailyGamesJob = JobBuilder.Create<StoreDailyGamesJob>()
-                .WithIdentity("job1")
-                .Build();
-            
-            //Check continuously that there is an upcoming game in 10 mins
-            var publishGamesJob = JobBuilder.Create<PublishGamesJob>()
-                .WithIdentity("job2")
+                .WithIdentity("storeDailyGamesJob")
                 .Build();
 
-            storeDailyGamesJob.JobDataMap["gameRepo"] = _gameRepository;
-            publishGamesJob.JobDataMap["gameRepo"] = _gameRepository;
-            publishGamesJob.JobDataMap["messageBusSetup"] = _messageBusSetup;
-
-            var triggerTime= TimeOfDay.HourMinuteAndSecondOfDay(00, 50, 20);
-
+            //Triggers
             var storeDailyGamesTrigger = TriggerBuilder.Create()
-                    .WithDailyTimeIntervalSchedule(s => s.WithIntervalInHours(24)
-                    .OnEveryDay()
-                    .StartingDailyAt(triggerTime))
-                    .Build();
+                .WithDailyTimeIntervalSchedule(s => s.WithIntervalInHours(24)
+                .StartingDailyAt(TimeOfDay.HourAndMinuteOfDay(15, 46))
+                .InTimeZone(TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time")))
+                .Build();
 
-            var myJobListener = new DailyStoreJobListener();
-            myJobListener.Name = "MyJobListener1";
-            scheduler.ListenerManager.AddJobListener(myJobListener, KeyMatcher<JobKey>.KeyEquals(new JobKey("PublishGamesJob", "PublishGamesJobGroup")));
+            //Pass params to jobs through jobdatamap
+            storeDailyGamesJob.JobDataMap["gameRepo"] = _gameRepository;
+            storeDailyGamesJob.JobDataMap["messageBusSetup"] = _messageBusSetup;
+            storeDailyGamesJob.JobDataMap["logger"] = _logger;
+
+            var dailyStoreJobListener = new DailyStoreJobListener {Name = "dailyStoreJobListener" };
+            scheduler.ListenerManager.AddJobListener(dailyStoreJobListener, KeyMatcher<JobKey>.KeyEquals(new JobKey("storeDailyGamesJob")));
             
             await scheduler.ScheduleJob(storeDailyGamesJob, storeDailyGamesTrigger);
         }
