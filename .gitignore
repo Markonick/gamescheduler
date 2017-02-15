@@ -240,5 +240,5 @@ ModelManifest.xml
 
 # FAKE - F# Make
 .fake/
-src/GameSchedulerMicroservice/appsettings.json
-src/GameSchedulerMicroservice/dontcommit.txt
+appsettings.json
+
